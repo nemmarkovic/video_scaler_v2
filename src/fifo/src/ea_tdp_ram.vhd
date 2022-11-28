@@ -35,6 +35,9 @@ architecture rtl of tdp_ram is
 	-- Declare the RAM 
    shared variable ram : memory_t;
 
+attribute RAM_STYLE : string;
+attribute RAM_STYLE of tdp_ram: entity is "BLOCK";
+
 begin
 
 	-- Port A

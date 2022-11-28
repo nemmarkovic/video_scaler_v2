@@ -5,53 +5,43 @@
 library ieee;
     use ieee.std_logic_1164.all;
 
-    use work.p_fifo.all;
+    use work.p_handshake.all;
 
 entity reg is
    generic(
-      G_FDEPTH    : natural := 1024;
-      G_WR_DWIDTH : natural :=    8;
-      G_RD_DWIDTH : natural :=    8);
+      G_EXWIDTH: natural                :=  0;
+      G_DNUM   : natural range 1 to   8 :=  1;
+      G_DWIDTH : natural range 1 to 128 :=  8);
    port(
       i_clk       : in  std_logic;
       i_rst       : in  std_logic;
 
-      i_wr_2_fifo : in  t_wr_2_fifo; --(data(G_WR_DWIDTH -1 downto 0));
-      o_fifo_2_wr : out t_fifo_2_wr;
+      i_data      : in  t_data(data(G_EXWIDTH + G_DNUM * G_DWIDTH -1 downto 0));
+      o_ack       : out t_ack;
 
-      o_fifo_2_rd : out t_fifo_2_rd; --(data(G_RD_DWIDTH -1 downto 0));
-      i_rd_2_fifo : in  t_rd_2_fifo);
+      o_data      : out t_data(data(G_EXWIDTH + G_DNUM * G_DWIDTH -1 downto 0));
+      i_ack       : in  t_ack);
    end reg;
 
 architecture Behavioral of reg is
    type t_reg is record
-      fifo_2_wr_ack : std_logic;
-      wr_data       : std_logic_vector(G_WR_DWIDTH -1 downto 0);
-
-      full          : std_logic;
-
-      fifo_2_rd_ack : std_logic;
-
-      rd_data       : std_logic_vector(G_RD_DWIDTH -1 downto 0);
+      in_data       : std_logic_vector(G_EXWIDTH + G_DNUM * G_DWIDTH -1 downto 0);
+      in_data_ack   : t_ack;
+      out_data      : t_data(data(G_EXWIDTH + G_DNUM * G_DWIDTH -1 downto 0));
+      active        : std_logic;
    end record t_reg;  
 
    constant t_reg_rst : t_reg := (
-
-      fifo_2_wr_ack => '0',
-      wr_data       => (others => '0'),
-
-      full          => '0',
-
-      fifo_2_rd_ack => '0',
-      rd_data       => (others => '0'));
+      in_data       => (others => '0'),
+      in_data_ack   => (full => '0', ack => '0'),
+      active        => '0',
+      out_data      => (data => (others => '0'), handsh => '0'));
 
    signal R, R_in   : t_reg;
 
 begin
 
-------------------------------------------------
 -- Register process
-------------------------------------------------
 reg : process(i_clk)
    begin
       if rising_edge(i_clk) then
@@ -59,46 +49,43 @@ reg : process(i_clk)
              R <= t_reg_rst;
          else
              R <= R_in;
+             R.active <= '1';
          end if;
       end if;
    end process;
 
-------------------------------------------------
 -- Function comb process
-------------------------------------------------
-fnc: process(R, i_wr_2_fifo, i_rd_2_fifo)
-
+fnc: process(all)
       variable S : t_reg;
    begin
       S := R;
 
-      if i_wr_2_fifo.wr_req /= R.fifo_2_wr_ack then
-         if R.full = '0' then
-           S.fifo_2_wr_ack := i_wr_2_fifo.wr_req;
-           S.wr_data       := i_wr_2_fifo.data;
-           S.full          := '1';
+      if R.active = '1' then
+         if i_data.handsh /= R.in_data_ack.ack then
+            if R.in_data_ack.full = '0' then
+              S.in_data_ack.ack := i_data.handsh;
+              S.in_data_ack.full:= '1';
+              S.in_data         := i_data.data;
+            end if;
+         end if;
+
+         if S.in_data_ack.full = '1' then
+            if ((i_ack.ack = R.out_data.handsh) and (i_ack.full = '0')) then
+               S.out_data.handsh := not R.out_data.handsh;
+               S.out_data.data   := S.in_data;
+               S.in_data_ack.full:= '0';
+            end if;
          end if;
       end if;
-
-      if S.full = '1' then
-         if i_rd_2_fifo.rd_req /= R.fifo_2_rd_ack then
-            S.fifo_2_rd_ack := i_rd_2_fifo.rd_req;
-
-            S.rd_data := S.wr_data;
-            S.full := '0';
-         end if;
-      end if;
-
+ 
       R_in <= S;
    end process;
 
 --------------------------------------------------------------------------
 -- Outputs assignment
 --------------------------------------------------------------------------
-o_fifo_2_rd.data   <= R_in.rd_data;
-o_fifo_2_rd.rd_ack <= R_in.fifo_2_rd_ack;
+   o_ack    <= R_in.in_data_ack;
+   o_data   <= R.out_data;
 
-o_fifo_2_wr.full   <= R_in.full;
-o_fifo_2_wr.wr_ack <= R_in.fifo_2_wr_ack;
 
 end Behavioral;

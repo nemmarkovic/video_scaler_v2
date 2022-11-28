@@ -5,23 +5,22 @@
 library ieee;
     use ieee.std_logic_1164.all;
 
-    use work.p_fifo.all;
+    use work.p_handshake.all;
 
 
 entity fifo is
    generic(
-      G_FDEPTH    : natural := 1024;
-      G_WR_DWIDTH : natural :=    8;
-      G_RD_DWIDTH : natural :=    8);
+      G_FDEPTH    : natural := 2048;
+      G_DWIDTH    : natural :=   11);
    port(
       i_clk       : in  std_logic;
       i_rst       : in  std_logic;
 
-      i_wr_2_fifo : in  t_wr_2_fifo; --(data(G_WR_DWIDTH -1 downto 0));
-      o_fifo_2_wr : out t_fifo_2_wr;
+      i_data      : in  t_data(data(G_DWIDTH -1 downto 0));
+      o_ack       : out t_ack;
 
-      o_fifo_2_rd : out t_fifo_2_rd; --(data(G_RD_DWIDTH -1 downto 0));
-      i_rd_2_fifo : in  t_rd_2_fifo);
+      o_data      : out t_data(data(G_DWIDTH -1 downto 0));
+      i_ack       : in  t_ack);
    end fifo;
 
 architecture Behavioral of fifo is
@@ -29,60 +28,52 @@ architecture Behavioral of fifo is
 
    component tdp_ram
    generic (
-      DATA_WIDTH : natural := 32;
-      ADDR_WIDTH : natural := 10);
+      G_DWIDTH : natural := 32;
+      G_AWIDTH : natural := 10);
    port(
       clk_a  : in std_logic;
       clk_b  : in std_logic;
-      addr_a : in natural range 0 to 2**ADDR_WIDTH - 1;
-      addr_b : in natural range 0 to 2**ADDR_WIDTH - 1;
-      data_a : in std_logic_vector((DATA_WIDTH-1) downto 0);
-      data_b : in std_logic_vector((DATA_WIDTH-1) downto 0);
+      addr_a : in natural range 0 to 2**G_AWIDTH - 1;
+      addr_b : in natural range 0 to 2**G_AWIDTH - 1;
+      data_a : in std_logic_vector((G_DWIDTH-1) downto 0);
+      data_b : in std_logic_vector((G_DWIDTH-1) downto 0);
       we_a   : in std_logic := '1';
       we_b   : in std_logic := '1';
-      q_a    : out std_logic_vector((DATA_WIDTH -1) downto 0);
-      q_b    : out std_logic_vector((DATA_WIDTH -1) downto 0));
+      q_a    : out std_logic_vector((G_DWIDTH -1) downto 0);
+      q_b    : out std_logic_vector((G_DWIDTH -1) downto 0));
    end component;
 
    type t_reg is record
+      in_data       : std_logic_vector(G_DWIDTH -1 downto 0);
+      in_data_ack   : t_ack;
+      out_data      : t_data(data(G_DWIDTH -1 downto 0));
+
       wr_pointer    : natural;
       rd_pointer    : natural;
       pointer_diff  : natural;
-      fifo_2_wr_ack : std_logic;
-      wr_data       : std_logic_vector(G_WR_DWIDTH -1 downto 0);
+
       wr_en         : std_logic;
-
-
-      full          : std_logic;
       empty         : std_logic;
-
-      fifo_2_rd_ack : std_logic;
-
-      rd_data       : std_logic_vector(G_RD_DWIDTH -1 downto 0);
    end record t_reg;  
 
    constant t_reg_rst : t_reg := (
+      in_data       => (others => '0'),
+      in_data_ack   => (full => '0', ack => '0'),
+      out_data      => (data => (others => '0'), handsh => '0'),
+      
       wr_pointer    =>  0,
       rd_pointer    =>  0,
       pointer_diff  =>  0,
 
-      fifo_2_wr_ack => '0',
-      wr_data       => (others => '0'),
       wr_en         => '0',
+      empty         => '1');
 
-      full          => '0',
-      empty         => '0',
-
-      fifo_2_rd_ack => '0',
-      rd_data       => (others => '0'));
-
-   signal w_rd_data : std_logic_vector(G_WR_DWIDTH -1 downto 0);
    signal R, R_in   : t_reg;
+   signal w_rd_data : std_logic_vector(G_DWIDTH -1 downto 0);
+
 begin
 
-------------------------------------------------
 -- Register process
-------------------------------------------------
 reg : process(i_clk)
    begin
       if rising_edge(i_clk) then
@@ -94,28 +85,11 @@ reg : process(i_clk)
       end if;
    end process;
 
-------------------------------------------------
 -- Function comb process
-------------------------------------------------
-fnc: process(R, i_wr_2_fifo, i_rd_2_fifo)
-
---      type t_heler_sig is record
---         wr_data    : std_logic_vector(7 downto 0);
---      end record t_heler_sig; 
---      variable V : t_heler_sig;
-
+fnc: process(all)
       variable S : t_reg;
    begin
       S := R;
-
-      if i_wr_2_fifo.wr_req /= R.fifo_2_wr_ack then
-         if R.full = '0' then
-           S.fifo_2_wr_ack := i_wr_2_fifo.wr_req;
-           S.wr_data       := i_wr_2_fifo.data;
-           S.wr_en         := '1';
-         end if;
-         S.pointer_diff  := R.pointer_diff +1;
-      end if;
 
       if R.wr_en = '1' then
          if R.wr_pointer >= G_FDEPTH -1 then
@@ -125,9 +99,20 @@ fnc: process(R, i_wr_2_fifo, i_rd_2_fifo)
          end if;
       end if;
 
+      S.wr_en         := '0';
+      if i_data.handsh /= R.in_data_ack.ack then
+         if R.in_data_ack.full = '0' then
+           S.in_data_ack.ack := i_data.handsh;
+           S.wr_en           := '1';
+           S.in_data         := i_data.data;
+         end if;
+         S.pointer_diff  := R.pointer_diff +1;
+      end if;
+
       if R.empty = '0' then
-         if i_rd_2_fifo.rd_req /= R.fifo_2_rd_ack then
-            S.fifo_2_rd_ack := i_rd_2_fifo.rd_req;
+         if ((i_ack.ack = R.out_data.handsh) and (i_ack.full = '0')) then
+            S.out_data.handsh := not R.out_data.handsh;
+            S.out_data.data   := w_rd_data;
             if  S.wr_pointer /= R.wr_pointer then
                S.pointer_diff := R.pointer_diff;
             else
@@ -139,49 +124,43 @@ fnc: process(R, i_wr_2_fifo, i_rd_2_fifo)
             else
                S.rd_pointer := R.rd_pointer +1;
             end if;
-
-            S.rd_data := w_rd_data;
          end if;
       end if;
 
-
       if R.pointer_diff = 0 then
-         S.full  := '0';
-         S.empty := '1';
+         S.in_data_ack.full  := '0';
+         S.empty             := '1';
       elsif S.pointer_diff >= G_FDEPTH -1 then
-         S.full  := '1';
-         S.empty := '0';
+         S.in_data_ack.full  := '1';
+         S.empty             := '0';
       else
-         S.full  := '0';
-         S.empty := '0';
+         S.in_data_ack.full  := '0';
+         S.empty             := '0';
       end if;
 
       R_in <= S;
    end process;
 
---------------------------------------------------------------------------
+----------------------------------------------
 -- Outputs assignment
---------------------------------------------------------------------------
-o_fifo_2_rd.data   <= R_in.rd_data;
-o_fifo_2_rd.rd_ack <= R_in.fifo_2_rd_ack;
-
-o_fifo_2_wr.full   <= R_in.full;
-o_fifo_2_wr.wr_ack <= R_in.fifo_2_wr_ack;
+----------------------------------------------
+   o_ack    <= R_in.in_data_ack;
+   o_data   <= R.out_data;
 
 
---------------------------------------------------------------------------
+----------------------------------------------
 -- Memmory read/write proccess
---------------------------------------------------------------------------
+----------------------------------------------
 tdp_ram_inst: tdp_ram
    generic map(
-      DATA_WIDTH => G_WR_DWIDTH,
-      ADDR_WIDTH => 10)--ceil(log2(G_FDEPTH)))
+      G_DWIDTH => G_DWIDTH,
+      G_AWIDTH => 10)--ceil(log2(G_FDEPTH)))
    port map(
       clk_a  => i_clk,
       clk_b  => i_clk,
       addr_a => R.wr_pointer,
       addr_b => R_in.rd_pointer,
-      data_a => R.wr_data,
+      data_a => R.in_data,
       data_b => (others => '0'),
       we_a   => R.wr_en,
       we_b   => '0',
