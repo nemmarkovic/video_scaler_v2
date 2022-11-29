@@ -139,11 +139,12 @@ reg_in : process(i_clk)
 fnc: process(all)
       type t_lreg is record
          mux_sel : std_logic_vector(c_phase_num -1 downto 0);
+         ipos_coresponds_for_all_cells : std_logic;
       end record t_lreg;
 
       constant t_lreg_rst : t_lreg := (
-         mux_sel       => (others => '0'));
-
+         mux_sel       => (others => '0'),
+         ipos_coresponds_for_all_cells => '0');
 
       variable S : t_reg;
       variable V : t_lreg;
@@ -153,6 +154,9 @@ fnc: process(all)
       V := t_lreg_rst;
 
       if R.active = '1' then
+
+         V.ipos_coresponds_for_all_cells := and(l_ipos_as_expected);
+
          if i_data.handsh /= R.in_data_ack.ack then
             if R.in_data_ack.full = '0' then
                S.in_data_ack.ack := i_data.handsh;
@@ -161,40 +165,11 @@ fnc: process(all)
                S.poss            := i_poss;
             end if;
          end if;
---------------------------------------------------------------------------------------
-         cf_xor_gen1: for gen_cell in 1 to c_phase_num loop
-            V.mux_sel(gen_cell -1) := (l_ipos_as_expected(gen_cell) xor l_ipos_as_expected(gen_cell -1));
-         end loop;
-
-         S.poss_as_expct := l_ipos_as_expected;
-      
-         if (and(l_ipos_as_expected)) = '1' then
-            S.start_pos       := w_next_start_pix(c_phase_num);
-         else
-            cf_xor_gen: for gen_cell_num in 0 to c_phase_num -1 loop
-               if (V.mux_sel(gen_cell_num )) = '1' then
-                  S.start_pos := w_next_start_pix(gen_cell_num +1);
-               end if;
-            end loop;
-         end if;
-
-         S.indx_valid := (others => '0');
-         if (i_data.data(C_EXWIDTH_in + C_DNUM_in * C_DWIDTH_in -2) = '1') then
-            S.indx_valid := l_ipos_as_expected(0 to c_phase_num -1);
-         end if;
-
---------------------------------------------------------------------------------------
-         if S.in_data_ack.full = '1' then
-            if ((i_ack.ack = R.out_data.handsh) and (i_ack.full = '0')) then
-               S.out_data.handsh := not R.out_data.handsh;
-               S.out_data.data   := S.in_data;
-               S.in_data_ack.full:= '0';
-            end if;
-         end if;
-      end if;
+         -- set ack full signal if all cells return info the poss is corresponding
+         S.in_data_ack.full := R.in_data_ack.full or V.ipos_coresponds_for_all_cells; --(?  R.in_data_ack.full)
  
-      R_in <= S;
-
+         R_in <= S;
+      end if;
 end process;
 
 -----------------------------------------
@@ -231,8 +206,6 @@ cf_calc_cell_gen: for gen_cell_num in 0 to c_phase_num generate
 -----------------------------------------
 -- outputs assignment
 -----------------------------------------
---   o_ready           <= l_ipos_ready; --r_ipos_ready;
---   o_data            <= r_ipix;
 
 gf: for cell_num_gen in 0 to c_phase_num -1 generate
    o_cf(cell_num_gen).cf_indx       <= l_cf_indx(cell_num_gen);
