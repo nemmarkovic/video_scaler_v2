@@ -21,7 +21,7 @@ entity stream_to_rows is
 
         o_poss          : out natural range 0 to 4095;
 
-        o_pix           : out t_data(data(2*G_DWIDTH +3 -1 downto 0));
+        o_pix           : out t_data(data(2 downto 0)(G_DWIDTH -1 downto 0), dextra(2 downto 0));
         i_ack           : in  t_ack);
    end stream_to_rows;
 
@@ -69,47 +69,47 @@ architecture Behavioral of stream_to_rows is
          i_ack       : in  t_ack);
       end component reg;
 
-   signal w_adapt_to_reg  : t_data(data(G_DWIDTH +3 -1 downto 0));
+   signal w_adapt_to_reg  : t_data(data(1-1 downto 0)(G_DWIDTH -1 downto 0), dextra(3-1 downto 0));
    signal w_reg_to_adapt  : t_ack;
 
-   signal w_reg0_to_dsgn  : t_data(data(G_DWIDTH +3 -1 downto 0));
+   signal w_reg0_to_dsgn  : t_data(data(1-1 downto 0)(G_DWIDTH -1 downto 0), dextra(3-1 downto 0));
    signal w_dsgn_to_reg0  : t_ack;
 
-   signal w_dsgn_to_reg1  : t_data(data(G_DWIDTH +3 -1 downto 0));
+   signal w_dsgn_to_reg1  : t_data(data(1-1 downto 0)(G_DWIDTH -1 downto 0), dextra(3-1 downto 0));
    signal w_reg1_to_dsgn  : t_ack;
 
-   signal w_dsgn_to_fifo  : t_data(data(G_DWIDTH +3 -1 downto 0));
+   signal w_dsgn_to_fifo  : t_data(data(1-1 downto 0)(G_DWIDTH -1 downto 0), dextra(3-1 downto 0));
    signal w_fifo_to_dsgn  : t_ack;
 
-   signal w_reg1_to_out  : t_data(data(G_DWIDTH +3 -1 downto 0));
+   signal w_reg1_to_out  : t_data(data(1-1 downto 0)(G_DWIDTH -1 downto 0), dextra(3-1 downto 0));
    signal w_out_to_reg1  : t_ack;
 
-   signal w_fifo_to_out  : t_data(data(G_DWIDTH +3 -1 downto 0));
+   signal w_fifo_to_out  : t_data(data(1-1 downto 0)(G_DWIDTH -1 downto 0), dextra(3-1 downto 0));
    signal w_out_to_fifo  : t_ack;
 
-   signal w_to_out       : t_data(data(2*G_DWIDTH +3 -1 downto 0));
+   signal w_to_out       : t_data(data(2-1 downto 0)(G_DWIDTH -1 downto 0), dextra(3-1 downto 0));
    signal w_from_out     : t_ack;
 
-   signal w_oreg_to_out  : t_data(data(2*G_DWIDTH +3 -1 downto 0));
+   signal w_oreg_to_out  : t_data(data(2-1 downto 0)(G_DWIDTH -1 downto 0), dextra(3-1 downto 0));
 
    type t_dsgn_reg is record
       dsgn_to_reg0    : t_ack;
-      reg0_to_dsgn    : t_data(data(G_DWIDTH +3 -1 downto 0));
+      reg0_to_dsgn    : t_data(data(1-1 downto 0)(G_DWIDTH -1 downto 0), dextra(3-1 downto 0));
  
-      dsgn_to_fifo    : t_data(data(G_DWIDTH +3 -1 downto 0));
+      dsgn_to_fifo    : t_data(data(1-1 downto 0)(G_DWIDTH -1 downto 0), dextra(3-1 downto 0));
       fifo_to_dsgn    : t_ack;
-      dsgn_to_reg1    : t_data(data(G_DWIDTH +3 -1 downto 0));
+      dsgn_to_reg1    : t_data(data(1-1 downto 0)(G_DWIDTH -1 downto 0), dextra(3-1 downto 0));
       reg1_to_dsgn    : t_ack;
       row_cnt        : natural;
    end record t_dsgn_reg;  
 
    constant t_dsgn_reg_rst : t_dsgn_reg := (
-      reg0_to_dsgn => (data => (others => '0'), handsh => '0'),
+      reg0_to_dsgn => (data => (others => (others =>'0')), handsh => '0', dextra => (others => '0')),
       dsgn_to_reg0 => (ack  => '0'            , full   => '0'),
 
-      dsgn_to_fifo => (data => (others => '0'), handsh => '0'),
+      dsgn_to_fifo => (data => (others => (others =>'0')), handsh => '0', dextra => (others => '0')),
       fifo_to_dsgn => (ack  => '0'            , full   => '0'),
-      dsgn_to_reg1 => (data => (others => '0'), handsh => '0'),
+      dsgn_to_reg1 => (data => (others => (others =>'0')), handsh => '0', dextra => (others => '0')),
       reg1_to_dsgn => (ack  => '0'            , full   => '0'),
       row_cnt     => 0      
       );
@@ -117,27 +117,27 @@ architecture Behavioral of stream_to_rows is
    signal R_dsgn, R_dsgn_in : t_dsgn_reg;
 
    type t_out_reg is record
-      dsgn_to_out     : t_data(data(2*G_DWIDTH +3 -1 downto 0));
+      dsgn_to_out     : t_data(data(2-1 downto 0)(G_DWIDTH -1 downto 0), dextra (3-1 downto 0));
       out_to_dsgn     : t_ack;
  
       out_to_fifo     : t_ack;
-      fifo_to_out     : t_data(data(G_DWIDTH +3 -1 downto 0));
+      fifo_to_out     : t_data(data(1-1 downto 0)(G_DWIDTH -1 downto 0), dextra(3-1 downto 0));
       out_to_reg1     : t_ack;
-      reg1_to_out     : t_data(data(G_DWIDTH +3 -1 downto 0));
+      reg1_to_out     : t_data(data(1-1 downto 0)(G_DWIDTH -1 downto 0), dextra(3-1 downto 0));
    end record t_out_reg;  
 
    constant t_out_reg_rst : t_out_reg := (
-      dsgn_to_out  => (data => (others => '0'), handsh => '0'),
+      dsgn_to_out  => (data => (others => (others =>'0')), handsh => '0', dextra => (others => '0')),
       out_to_dsgn  => (ack  => '0'            , full   => '0'),
 
-      fifo_to_out  => (data => (others => '0'), handsh => '0'),
+      fifo_to_out  => (data => (others => (others =>'0')), handsh => '0', dextra => (others => '0')),
       out_to_fifo  => (ack  => '0'            , full   => '0'),
-      reg1_to_out  => (data => (others => '0'), handsh => '0'),
+      reg1_to_out  => (data => (others => (others =>'0')), handsh => '0', dextra => (others => '0')),
       out_to_reg1  => (ack  => '0'            , full   => '0'));
 
    signal R_rd, R_rd_in : t_out_reg;--(data(G_WR_DWIDTH -1 downto 0));
 
-   signal w_reg_to_dsgn  : t_data(data(G_DWIDTH -1 downto 0));
+   signal w_reg_to_dsgn  : t_data(data(1-1 downto 0)(G_DWIDTH -1 downto 0), dextra(-1 downto 0));
    signal w_dsgn_to_reg  : t_ack;
 
 begin
@@ -188,7 +188,7 @@ fnc: process(all)
    begin
       S := R_dsgn;
 
-      if w_reg0_to_dsgn.data(G_DWIDTH-1) = '1' then
+      if w_reg0_to_dsgn.dextra(3-1) = '1' then
          S.row_cnt := 0;
       end if;
 
@@ -198,11 +198,11 @@ fnc: process(all)
             S.dsgn_to_reg0.full:= '1';
             S.reg0_to_dsgn.data:= w_reg0_to_dsgn.data;
 
-            if w_reg0_to_dsgn.data(G_DWIDTH-2) = '1' then
+            if w_reg0_to_dsgn.dextra(G_DWIDTH-2) = '1' then
                S.row_cnt := R_dsgn.row_cnt +1;
             end if;
 
-            if w_reg0_to_dsgn.data(9) = '1' then
+            if w_reg0_to_dsgn.dextra(3-1) = '1' then
                S.row_cnt := 0;
             end if;
          end if;
@@ -214,6 +214,7 @@ fnc: process(all)
             if ((w_fifo_to_dsgn.ack = R_dsgn.dsgn_to_fifo.handsh) and (w_fifo_to_dsgn.full = '0')) then
                S.dsgn_to_fifo.handsh := not R_dsgn.dsgn_to_fifo.handsh;
                S.dsgn_to_fifo.data   := S.reg0_to_dsgn.data;
+               S.dsgn_to_fifo.dextra := S.reg0_to_dsgn.dextra;
                S.dsgn_to_reg0.full   := '0';
             end if;
          else
@@ -223,6 +224,7 @@ fnc: process(all)
 
                S.dsgn_to_reg1.handsh := not R_dsgn.dsgn_to_reg1.handsh;
                S.dsgn_to_reg1.data   := S.reg0_to_dsgn.data;
+               S.dsgn_to_reg1.dextra := S.reg0_to_dsgn.dextra;
 
                S.dsgn_to_reg0.full   := '0';
             end if;
@@ -254,7 +256,7 @@ str2row_reg_inst_1 : reg
 str2row_fifo_inst : fifo
    generic map(
       G_FDEPTH   => 1024,
-      G_DWIDTH   => G_DWIDTH +3)
+      G_DWIDTH   => G_DWIDTH)
    port map(
       i_clk      => s_axis_aclk,
       i_rst      => not(s_axis_arst_n),

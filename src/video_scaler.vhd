@@ -75,14 +75,14 @@ component stream_to_rows is
 
         o_poss          : out std_logic_vector(11-1 downto 0);
 
-        o_pix           : out t_data(data(2*G_DWIDTH +3 -1 downto 0));
+        o_pix           : out t_data(data(2 downto 0)(G_DWIDTH -1 downto 0), dextra(2 downto 0));
         i_ack           : in  t_ack);
    end component stream_to_rows;
 
 
    signal w_poss        : std_logic_vector(11-1 downto 0);
 
-   signal w_pix         : t_data(data(2*G_DWIDTH +3 -1 downto 0));
+   signal w_pix         : t_data(data(2 downto 0)(G_DWIDTH -1 downto 0), dextra(2 downto 0));
    signal w_ack         : t_ack;
 
 begin

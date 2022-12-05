@@ -11,20 +11,21 @@ library ieee;
 entity fifo is
    generic(
       G_FDEPTH    : natural := 2048;
-      G_DWIDTH    : natural :=   11);
+      G_DNUM      : natural :=   1;
+      G_DWIDTH    : natural :=   8;
+      G_DEXTRA    : natural :=   0);
    port(
       i_clk       : in  std_logic;
       i_rst       : in  std_logic;
 
-      i_data      : in  t_data(data(G_DWIDTH -1 downto 0));
+      i_data      : in  t_data(data(G_DNUM-1 downto 0)(G_DWIDTH -1 downto 0), dextra(G_DEXTRA-1 downto 0));
       o_ack       : out t_ack;
 
-      o_data      : out t_data(data(G_DWIDTH -1 downto 0));
+      o_data      : out t_data(data(G_DNUM-1 downto 0)(G_DWIDTH -1 downto 0), dextra(G_DEXTRA-1 downto 0));
       i_ack       : in  t_ack);
    end fifo;
 
 architecture Behavioral of fifo is
-   constant T_BYTE_WIDTH : natural := 8;
 
    component tdp_ram
    generic (
@@ -44,9 +45,9 @@ architecture Behavioral of fifo is
    end component;
 
    type t_reg is record
-      in_data       : std_logic_vector(G_DWIDTH -1 downto 0);
+      in_data       : std_logic_vector(G_DEXTRA + G_DNUM * G_DWIDTH -1 downto 0);
       in_data_ack   : t_ack;
-      out_data      : t_data(data(G_DWIDTH -1 downto 0));
+      out_data      : t_data(data(G_DNUM-1 downto 0)(G_DWIDTH -1 downto 0), dextra(G_DEXTRA-1 downto 0));
 
       wr_pointer    : natural;
       rd_pointer    : natural;
@@ -59,7 +60,7 @@ architecture Behavioral of fifo is
    constant t_reg_rst : t_reg := (
       in_data       => (others => '0'),
       in_data_ack   => (full => '0', ack => '0'),
-      out_data      => (data => (others => '0'), handsh => '0'),
+      out_data      => (data => (others => (others =>'0')), handsh => '0', dextra => (others =>'0')),
       
       wr_pointer    =>  0,
       rd_pointer    =>  0,
@@ -69,7 +70,7 @@ architecture Behavioral of fifo is
       empty         => '1');
 
    signal R, R_in   : t_reg;
-   signal w_rd_data : std_logic_vector(G_DWIDTH -1 downto 0);
+   signal w_rd_data : std_logic_vector(G_DEXTRA + G_DNUM * G_DWIDTH -1 downto 0);
 
 begin
 
@@ -104,7 +105,12 @@ fnc: process(all)
          if R.in_data_ack.full = '0' then
            S.in_data_ack.ack := i_data.handsh;
            S.wr_en           := '1';
-           S.in_data         := i_data.data;
+           for i in 0 to G_DNUM -1 loop
+              S.in_data((i+1) * G_DWIDTH -1 downto G_DWIDTH * i) := i_data.data(i);
+           end loop;
+           if (G_DEXTRA > 0) then
+              S.in_data(G_DEXTRA + G_DNUM*G_DWIDTH -1 downto G_DNUM*G_DWIDTH) := i_data.dextra;
+           end if;
          end if;
          S.pointer_diff  := R.pointer_diff +1;
       end if;
@@ -112,7 +118,13 @@ fnc: process(all)
       if R.empty = '0' then
          if ((i_ack.ack = R.out_data.handsh) and (i_ack.full = '0')) then
             S.out_data.handsh := not R.out_data.handsh;
-            S.out_data.data   := w_rd_data;
+            
+            for i in 0 to G_DNUM -1 loop
+               S.out_data.data(i) := w_rd_data((i+1) * G_DWIDTH -1 downto G_DWIDTH * i);
+            end loop;
+            if (G_DEXTRA > 0) then
+               S.out_data.dextra := w_rd_data(G_DEXTRA + G_DNUM * G_DWIDTH -1 downto G_DNUM * G_DWIDTH);
+            end if;
             if  S.wr_pointer /= R.wr_pointer then
                S.pointer_diff := R.pointer_diff;
             else
@@ -153,7 +165,7 @@ fnc: process(all)
 ----------------------------------------------
 tdp_ram_inst: tdp_ram
    generic map(
-      G_DWIDTH => G_DWIDTH,
+      G_DWIDTH => G_DEXTRA + G_DNUM * G_DWIDTH,
       G_AWIDTH => 10)--ceil(log2(G_FDEPTH)))
    port map(
       clk_a  => i_clk,

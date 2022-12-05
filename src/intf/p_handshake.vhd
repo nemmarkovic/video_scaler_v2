@@ -4,6 +4,8 @@ library ieee;
 -- Package Declaration Section
 package p_handshake is
 
+   type darray is array (positive range <>) of std_logic_vector;
+
    type t_data_d is record
       handsh   : std_logic;
       data     : std_logic_vector(2*8 +3 -1 downto 0);
@@ -11,7 +13,8 @@ package p_handshake is
 
    type t_data is record
       handsh   : std_logic;
-      data     : std_logic_vector;--(8 +3 -1 downto 0);
+      dextra   : std_logic_vector;
+      data     : darray;--(8 +3 -1 downto 0);
    end record t_data;  
    
    type t_ack is record

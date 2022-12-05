@@ -71,7 +71,7 @@ component reg is
    signal l_ipos_as_expected : std_logic_vector(0 to c_phase_num);
  
    type t_cf_width_array is array (0 to c_phase_num) of std_logic_vector(c_phase_width -1 downto 0);
-   signal l_cf_indx        : t_cf_width_array;
+   signal w_cf_indx        : t_cf_width_array;
 
    type t_pix_pos is array (0 to c_phase_num) of std_logic_vector(11 -1 downto 0);
    signal w_next_start_pix :  t_pix_pos;
@@ -89,7 +89,9 @@ component reg is
    type t_reg is record
       in_data       : std_logic_vector(C_EXWIDTH_in + C_DNUM_in * C_DWIDTH_in -1 downto 0);
       in_data_ack   : t_ack;
-      out_data      : t_data(data(C_EXWIDTH_in + C_DNUM_in * C_DWIDTH_in -1 downto 0));
+      odata         : t_data(data(C_EXWIDTH_in + C_DNUM_in * C_DWIDTH_in -1 downto 0));
+      oack          : t_ack;
+      cf_indx       : t_cf_width_array;
       active        : std_logic;
       poss_as_expct : std_logic_vector(0 to c_phase_num);
       start_pos     : std_logic_vector(11 -1 downto 0);
@@ -101,7 +103,9 @@ component reg is
       in_data       => (others => '0'),
       in_data_ack   => (full => '0', ack => '0'),
       active        => '0',
-      out_data      => (data => (others => '0'), handsh => '0'),
+      odata         => (data => (others => '0'), handsh => '0'),
+      oack          => (ack => '0', full => '0'),
+      cf_indx       => (others => (others => '0')),
       poss_as_expct => (others => '0'),
       start_pos     => (others => '0'),
       indx_valid    => (others => '0'),
@@ -166,7 +170,36 @@ fnc: process(all)
             end if;
          end if;
          -- set ack full signal if all cells return info the poss is corresponding
-         S.in_data_ack.full := R.in_data_ack.full or V.ipos_coresponds_for_all_cells; --(?  R.in_data_ack.full)
+         S.in_data_ack.full := V.ipos_coresponds_for_all_cells;  -- or R.in_data_ack.full;--(?  R.in_data_ack.full)
+
+         V.mux_sel := (others => '0');
+         cf_xor_gen: for gen_cell_num in 1 to c_phase_num loop
+            if (l_ipos_as_expected(gen_cell_num) xor l_ipos_as_expected(gen_cell_num -1)) = '1' then
+               V.mux_sel(gen_cell_num -1) := '1';
+            end if;
+         end loop;
+
+
+         if V.ipos_coresponds_for_all_cells = '1' then
+            S.start_pos       := w_next_start_pix(c_phase_num);
+--            l_start_pos_valid <= '1';
+         else
+            cf_spos_gen: for gen_cell_num in 0 to c_phase_num -1 loop
+               if (l_mux_sel(gen_cell_num )) = '1' then
+                  S.start_pos       := w_next_start_pix(gen_cell_num +1);
+--                  l_start_pos_valid <= '1';
+               end if;
+            end loop;
+         end if;
+
+         if S.in_data_ack.full = '1' then
+            if ((i_ack.ack = R.odata.handsh) and (i_ack.full = '0')) then
+               S.odata.handsh := not R.odata.handsh;
+               S.odata.data   := S.in_data;
+            end if;
+         end if;
+ 
+         S.cf_indx := w_cf_indx;
  
          R_in <= S;
       end if;
@@ -195,7 +228,7 @@ cf_calc_cell_gen: for gen_cell_num in 0 to c_phase_num generate
          --output pixel data 
          o_expected_pos    => w_expected_pos(gen_cell_num),
          o_start_pos       => w_next_start_pix(gen_cell_num),
-         o_cf_num          => l_cf_indx(gen_cell_num));
+         o_cf_num          => w_cf_indx(gen_cell_num));
 
       -- is equal to i_pos
       l_ipos_as_expected(gen_cell_num) <= nor(w_expected_pos(gen_cell_num) xor R.poss) and a_dvalid;
@@ -208,7 +241,7 @@ cf_calc_cell_gen: for gen_cell_num in 0 to c_phase_num generate
 -----------------------------------------
 
 gf: for cell_num_gen in 0 to c_phase_num -1 generate
-   o_cf(cell_num_gen).cf_indx       <= l_cf_indx(cell_num_gen);
+   o_cf(cell_num_gen).cf_indx       <= w_cf_indx(cell_num_gen);
    o_cf(cell_num_gen).cf_indx_valid <= R.indx_valid(cell_num_gen);
 end generate;
 
