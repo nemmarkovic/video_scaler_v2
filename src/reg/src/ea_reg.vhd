@@ -9,7 +9,6 @@ library ieee;
 
 entity reg is
    generic(
-      G_EXWIDTH   : natural :=   0;
       G_DNUM      : natural :=   1;
       G_DWIDTH    : natural :=   8;
       G_DEXTRA    : natural :=   0);

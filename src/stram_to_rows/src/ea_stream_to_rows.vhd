@@ -21,7 +21,7 @@ entity stream_to_rows is
 
         o_poss          : out natural range 0 to 4095;
 
-        o_pix           : out t_data(data(2 downto 0)(G_DWIDTH -1 downto 0), dextra(2 downto 0));
+        o_pix           : out t_data(data(2-1 downto 0)(G_DWIDTH -1 downto 0), dextra(2 downto 0));
         i_ack           : in  t_ack);
    end stream_to_rows;
 
@@ -43,7 +43,9 @@ architecture Behavioral of stream_to_rows is
    component fifo is
       generic(
          G_FDEPTH    : natural := 2048;
-         G_DWIDTH    : natural :=   8);
+         G_DNUM      : natural :=   1;
+         G_DWIDTH    : natural :=   8;
+         G_DEXTRA    : natural :=   0);
       port(
          i_clk       : in  std_logic;
          i_rst       : in  std_logic;
@@ -57,7 +59,9 @@ architecture Behavioral of stream_to_rows is
 
    component reg
       generic(
-         G_DWIDTH : natural :=    8);
+         G_DNUM      : natural :=   1;
+         G_DWIDTH    : natural :=   8;
+         G_DEXTRA    : natural :=   0);
       port(
          i_clk       : in  std_logic;
          i_rst       : in  std_logic;
@@ -159,7 +163,9 @@ axis_adapter_i : axis_adapter
 -- register data from adapter
 str2row_reg_inst_0 : reg
    generic map(
-      G_DWIDTH   => G_DWIDTH +3)
+      G_DNUM     => 1,
+      G_DWIDTH   => G_DWIDTH,
+      G_DEXTRA   => 3)
    port map(
       i_clk      => s_axis_aclk,
       i_rst      => not(s_axis_arst_n),
@@ -198,7 +204,7 @@ fnc: process(all)
             S.dsgn_to_reg0.full:= '1';
             S.reg0_to_dsgn.data:= w_reg0_to_dsgn.data;
 
-            if w_reg0_to_dsgn.dextra(G_DWIDTH-2) = '1' then
+            if w_reg0_to_dsgn.dextra(3-2) = '1' then
                S.row_cnt := R_dsgn.row_cnt +1;
             end if;
 
@@ -241,7 +247,9 @@ w_dsgn_to_fifo <= R_dsgn.dsgn_to_fifo;
 
 str2row_reg_inst_1 : reg
    generic map(
-      G_DWIDTH   => G_DWIDTH +3)
+      G_DNUM     => 1,
+      G_DWIDTH   => G_DWIDTH,
+      G_DEXTRA   => 3)
    port map(
       i_clk      => s_axis_aclk,
       i_rst      => not(s_axis_arst_n),
@@ -255,6 +263,8 @@ str2row_reg_inst_1 : reg
 
 str2row_fifo_inst : fifo
    generic map(
+      G_DNUM     =>   1,
+      G_DEXTRA   =>   3,
       G_FDEPTH   => 1024,
       G_DWIDTH   => G_DWIDTH)
    port map(
@@ -303,7 +313,8 @@ fnc_rdout: process(all)
          if ((S.out_to_reg1.full) and (S.out_to_fifo.full)) = '1' then
             if ((w_from_out.ack = R_rd.dsgn_to_out.handsh) and (w_from_out.full = '0')) then
                S.dsgn_to_out.handsh := not R_rd.dsgn_to_out.handsh;
-               S.dsgn_to_out.data   := S.fifo_to_out.data & S.reg1_to_out.data(7 downto 0);
+               S.dsgn_to_out.data(0)(G_DWIDTH -1 downto 0)   := S.fifo_to_out.data(0)(G_DWIDTH -1 downto 0);
+               S.dsgn_to_out.data(1)(G_DWIDTH -1 downto 0)   := S.reg1_to_out.data(0)(G_DWIDTH -1 downto 0);
                S.out_to_reg1.full   := '0';
                S.out_to_fifo.full   := '0';
             end if;
@@ -321,7 +332,9 @@ fnc_rdout: process(all)
 
 reg_out_inst_1 : reg
    generic map(
-      G_DWIDTH   => 2* G_DWIDTH +3)
+      G_DNUM     => 2,
+      G_DWIDTH   => G_DWIDTH,
+      G_DEXTRA   => 3)
    port map(
       i_clk      => s_axis_aclk,
       i_rst      => not(s_axis_arst_n),
