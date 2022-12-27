@@ -24,9 +24,12 @@ entity video_scaler is
 		s_axis_arst_n	 : in  std_logic;
       s_axis_in       : in  axi_s_d1;
       s_axis_out      : out axi_s_d2;
-        
-      o_bank_sel : out std_logic_vector(11 downto 0);
-      o_pix      : out t_data
+
+
+		s_axis_2_aclk   : in  std_logic;
+		s_axis_2_arst_n : in  std_logic;
+      s_axis_2_out    : out axi_s_d1;
+      s_axis_2_in     : in  axi_s_d2
     );
 end video_scaler;
 
@@ -66,6 +69,7 @@ component ea_stream_to_rows is
    signal w_pix         : t_data;
    signal w_ack         : t_ack;
 	signal l_rst         : std_logic;
+	signal w_bflt_pix    : t_data;
 
 begin
 
@@ -98,8 +102,10 @@ bilinear_flt_i: ea_bilinear_flt
       o_ack           => w_ack,
       i_pix           => w_pix,
       i_ack           => (ack => '0', full => '0'),
-      o_bank_sel      => o_bank_sel,
-      o_pix           => o_pix);
+      o_bank_sel      => open,
+      o_pix           => w_bflt_pix);
 
+		
+s_axis_2_out.tdata <= w_pix.data(7 downto 0);
 
 end Behavioral;

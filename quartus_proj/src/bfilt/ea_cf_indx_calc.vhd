@@ -238,7 +238,7 @@ cf_calc_cell_gen: for gen_cell_num in 0 to c_phase_num generate
       -- is equal to i_pos
 
 -- a_dvalid izbaceno, koristi se handsh - tako napravi !!!	
-      l_ipos_as_expected(gen_cell_num) <= '1' when ((w_expected_pos(gen_cell_num) xor R.poss) and a_dvalid) /= "00000" else '0';
+--      l_ipos_as_expected(gen_cell_num) <= '1' when ((w_expected_pos(gen_cell_num) xor R.poss) and a_dvalid) /= "00000" else '0';
    end generate;
 
 
