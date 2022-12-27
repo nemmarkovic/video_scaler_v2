@@ -45,7 +45,9 @@ component ea_fifo
       G_FDEPTH    : natural;
       G_DNUM      : natural;
       G_DWIDTH    : natural;
-      G_DEXTRA    : natural);
+      G_DEXTRA    : natural;
+		G_USE_EXTR  : natural;
+		G_USE_POSS  : natural);
    port(
       i_clk       : in  std_logic;
       i_rst       : in  std_logic;
@@ -61,7 +63,9 @@ component ea_reg
    generic(
       G_DNUM      : natural;
       G_DWIDTH    : natural;
-      G_DEXTRA    : natural);
+      G_DEXTRA    : natural;
+		G_USE_EXTR  : natural;
+		G_USE_POSS  : natural);
    port(
       i_clk       : in  std_logic;
       i_rst       : in  std_logic;
@@ -117,8 +121,7 @@ component ea_reg
       fifo_to_dsgn => t_ack_rst,
       dsgn_to_reg1 => t_data_rst,
       reg1_to_dsgn => t_ack_rst,
-      row_cnt     => 0      
-      );
+      row_cnt     => 0);
 
    signal R_dsgn, R_dsgn_in : t_dsgn_reg;
 
@@ -161,9 +164,11 @@ axis_adapter_i : ea_axis_adapter
 -- register data from adapter
 str2row_reg_inst_0 : ea_reg
    generic map(
-      G_DNUM     => 1,
-      G_DWIDTH   => G_DWIDTH,
-      G_DEXTRA   => C_DEXTRA_MAX)
+      G_DNUM      => 1,
+      G_DWIDTH    => G_DWIDTH,
+      G_DEXTRA    => C_DEXTRA_MAX,
+		G_USE_EXTR  => 1,
+		G_USE_POSS  => 0)
    port map(
       i_clk      => s_axis_aclk,
       i_rst      => not(s_axis_arst_n),
@@ -247,9 +252,11 @@ w_dsgn_to_fifo <= R_dsgn.dsgn_to_fifo;
 
 str2row_reg_inst_1 : ea_reg
    generic map(
-      G_DNUM     => 1,
-      G_DWIDTH   => G_DWIDTH,
-      G_DEXTRA   => C_DEXTRA_MAX)
+      G_DNUM      => 1,
+      G_DWIDTH    => G_DWIDTH,
+      G_DEXTRA    => C_DEXTRA_MAX,
+		G_USE_EXTR  => 1,
+		G_USE_POSS  => 0)
    port map(
       i_clk      => s_axis_aclk,
       i_rst      => not(s_axis_arst_n),
@@ -263,10 +270,12 @@ str2row_reg_inst_1 : ea_reg
 
 str2row_fifo_inst : ea_fifo
    generic map(
-      G_DNUM     =>   1,
-      G_DEXTRA   => C_DEXTRA_MAX,
-      G_FDEPTH   => G_FIFO_DEPTH,
-      G_DWIDTH   => G_DWIDTH)
+      G_FDEPTH    => G_FIFO_DEPTH,
+      G_DNUM      => 1,
+      G_DWIDTH    => G_DWIDTH,
+      G_DEXTRA    => C_DEXTRA_MAX,
+		G_USE_EXTR  => 1,
+		G_USE_POSS  => 0)
    port map(
       i_clk      => s_axis_aclk,
       i_rst      => not(s_axis_arst_n),
@@ -336,9 +345,11 @@ str2row_fifo_inst : ea_fifo
 
    reg_out_inst_1 : ea_reg
    generic map(
-      G_DNUM     => 2,
-      G_DWIDTH   => G_DWIDTH,
-      G_DEXTRA   => C_DEXTRA_MAX)
+      G_DNUM      => 2,
+      G_DWIDTH    => G_DWIDTH,
+      G_DEXTRA    => C_DEXTRA_MAX,
+		G_USE_EXTR  => 1,
+		G_USE_POSS  => 0)
    port map(
       i_clk      => s_axis_aclk,
       i_rst      => not(s_axis_arst_n),

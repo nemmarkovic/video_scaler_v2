@@ -3,7 +3,7 @@
 <!--                                                         -->
 <!-- Copyright 1986-2020 Xilinx, Inc. All Rights Reserved.   -->
 
-<Project Version="7" Minor="49" Path="D:/VIDEO_SCALER_v2_repo/proj/stream_to_rows/stream_to_rows.xpr">
+<Project Version="7" Minor="49" Path="E:/video_scaler_repo/video_scaler_v2/proj/stream_to_rows/stream_to_rows.xpr">
   <DefaultLaunch Dir="$PRUNDIR"/>
   <Configuration>
     <Option Name="Id" Val="e7208669acc842f4b691cfe3bd7211b2"/>

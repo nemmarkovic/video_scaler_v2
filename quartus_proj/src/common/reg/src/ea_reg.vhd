@@ -11,7 +11,9 @@ entity ea_reg is
    generic(
       G_DNUM      : natural := 2;
       G_DWIDTH    : natural := 8;
-      G_DEXTRA    : natural := C_DEXTRA_MAX);
+      G_DEXTRA    : natural := C_DEXTRA_MAX;
+		G_USE_EXTR  : natural range 0 to 1:= 1;
+		G_USE_POSS  : natural range 0 to 1:= 0);
    port(
       i_clk       : in  std_logic;
       i_rst       : in  std_logic;
@@ -25,7 +27,7 @@ entity ea_reg is
 
 architecture Behavioral of ea_reg is
 
-   constant C_DWIDTH : natural := G_DNUM*G_DWIDTH + G_DEXTRA;
+   constant C_DWIDTH : natural := (G_USE_POSS * C_POS_WIDTH) + (G_USE_EXTR * G_DEXTRA) + G_DNUM*G_DWIDTH;
 
    type t_reg is record
       in_data       : std_logic_vector(C_DWIDTH -1 downto 0);
@@ -71,16 +73,36 @@ fnc: process(all)
             if R.in_data_ack.full = '0' then
               S.in_data_ack.ack := i_data.handsh;
               S.in_data_ack.full:= '1';
-              S.in_data         := i_data.dextra & i_data.data(C_DWIDTH - G_DEXTRA -1 downto 0);
+
+
+              S.in_data(C_DWIDTH - (G_USE_POSS * C_POS_WIDTH) -(G_USE_EXTR * G_DEXTRA) -1 downto 0) := i_data.data(C_DWIDTH - (G_USE_POSS * C_POS_WIDTH) -(G_USE_EXTR * G_DEXTRA) -1 downto 0);				  
+				  if G_USE_EXTR = 1 then
+				     S.in_data(C_DWIDTH - (G_USE_POSS * C_POS_WIDTH) -1 downto C_DWIDTH - (G_USE_POSS * C_POS_WIDTH) -(G_USE_EXTR * G_DEXTRA)) := i_data.dextra; 
+				  end if;
+				  
+				  if G_USE_POSS = 1 then
+				     S.in_data(C_DWIDTH -1 downto C_DWIDTH - (G_USE_POSS * C_POS_WIDTH)) := i_data.possition;				  
+				  end if;
+				  
+
             end if;
          end if;
 
          if S.in_data_ack.full = '1' then
             if ((i_ack.ack = R.out_data.handsh) and (i_ack.full = '0')) then
                S.out_data.handsh := not R.out_data.handsh;
-               S.out_data.data(C_DWIDTH - G_DEXTRA -1 downto 0)   := S.in_data(C_DWIDTH - G_DEXTRA -1 downto 0);
-               S.out_data.dextra := S.in_data(C_DWIDTH -1 downto C_DWIDTH - G_DEXTRA);
                S.in_data_ack.full:= '0';
+
+               S.out_data.data(C_DWIDTH - (G_USE_POSS * C_POS_WIDTH) -(G_USE_EXTR * G_DEXTRA) -1 downto 0) := S.in_data(C_DWIDTH - (G_USE_POSS * C_POS_WIDTH) -(G_USE_EXTR * G_DEXTRA) -1 downto 0);
+               if G_USE_EXTR = 1 then
+				      S.out_data.dextra := S.in_data(C_DWIDTH - (G_USE_POSS * C_POS_WIDTH) -1 downto C_DWIDTH - (G_USE_POSS * C_POS_WIDTH) -(G_USE_EXTR * G_DEXTRA));
+					end if;
+				  
+				   if G_USE_POSS = 1 then
+				      S.out_data.possition := S.in_data(C_DWIDTH -1 downto C_DWIDTH - (G_USE_POSS * C_POS_WIDTH));				  
+				   end if;
+
+
             end if;
          end if;
       end if;

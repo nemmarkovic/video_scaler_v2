@@ -13,7 +13,9 @@ entity ea_fifo is
       G_FDEPTH    : natural := 2048;
       G_DNUM      : natural :=   1;
       G_DWIDTH    : natural :=   8;
-      G_DEXTRA    : natural := C_DEXTRA_MAX);
+      G_DEXTRA    : natural := C_DEXTRA_MAX;
+		G_USE_EXTR  : natural range 0 to 1:= 1;
+		G_USE_POSS  : natural range 0 to 1:= 0);
    port(
       i_clk       : in  std_logic;
       i_rst       : in  std_logic;
@@ -44,7 +46,7 @@ architecture Behavioral of ea_fifo is
       q_b      : out std_logic_vector((G_DWIDTH -1) downto 0));
    end component;
 
-   constant C_DWIDTH : natural := G_DNUM*G_DWIDTH + G_DEXTRA;
+   constant C_DWIDTH : natural := (G_USE_POSS * C_POS_WIDTH) + (G_USE_EXTR * G_DEXTRA) + G_DNUM*G_DWIDTH;
 
    type t_reg is record
       in_data       : std_logic_vector(C_DWIDTH -1 downto 0);
@@ -108,12 +110,17 @@ fnc: process(all)
            S.in_data_ack.ack := i_data.handsh;
            S.wr_en           := '1';
 
-           S.in_data(C_DWIDTH -G_DEXTRA -1 downto 0) := i_data.data(C_DWIDTH -G_DEXTRA -1 downto 0);
+           S.in_data(C_DWIDTH -(G_DEXTRA*G_USE_EXTR) -(C_POS_WIDTH*G_USE_POSS) -1 downto 0) := i_data.data(C_DWIDTH - (G_DEXTRA*G_USE_EXTR) -(C_POS_WIDTH*G_USE_POSS) -1 downto 0);
 
-           if (G_DEXTRA > 0) then
-              S.in_data(G_DEXTRA + G_DNUM*G_DWIDTH -1 downto G_DNUM*G_DWIDTH) := i_data.dextra;
+           if (G_USE_EXTR = 1) then
+              S.in_data(C_DWIDTH -(C_POS_WIDTH*G_USE_POSS) -1 downto C_DWIDTH - (G_DEXTRA*G_USE_EXTR) -(C_POS_WIDTH*G_USE_POSS)) := i_data.dextra;
            end if;
-         end if;
+
+           if (G_USE_POSS = 1) then
+              S.in_data(C_DWIDTH -1 downto C_DWIDTH -(G_USE_POSS*C_POS_WIDTH)) := i_data.possition;
+           end if;
+
+		  end if;
          S.pointer_diff  := R.pointer_diff +1;
       end if;
 
@@ -121,11 +128,18 @@ fnc: process(all)
          if ((i_ack.ack = R.out_data.handsh) and (i_ack.full = '0')) then
             S.out_data.handsh := not R.out_data.handsh;
             
-            S.out_data.data(C_DWIDTH -G_DEXTRA -1 downto 0) := w_rd_data(C_DWIDTH -G_DEXTRA -1 downto 0);
+            S.out_data.data(C_DWIDTH -(G_DEXTRA*G_USE_EXTR) -(C_POS_WIDTH*G_USE_POSS) -1 downto 0) := w_rd_data(C_DWIDTH -(G_DEXTRA*G_USE_EXTR) -(C_POS_WIDTH*G_USE_POSS) -1 downto 0);
 
-            if (G_DEXTRA > 0) then
-               S.out_data.dextra := w_rd_data(C_DWIDTH -1 downto C_DWIDTH -G_DEXTRA);
+				S.out_data.dextra := (others => '0');
+            if (G_USE_EXTR = 1) then
+               S.out_data.dextra := w_rd_data(C_DWIDTH -(C_POS_WIDTH*G_USE_POSS) -1 downto C_DWIDTH -(G_DEXTRA*G_USE_EXTR) -(C_POS_WIDTH*G_USE_POSS));
             end if;
+
+				S.out_data.possition := (others => '0');
+            if (G_USE_POSS = 1) then
+               S.out_data.possition := w_rd_data(C_DWIDTH -1 downto C_DWIDTH -(C_POS_WIDTH*G_USE_POSS));
+            end if;
+
             if  S.wr_pointer /= R.wr_pointer then
                S.pointer_diff := R.pointer_diff;
             else
@@ -166,7 +180,7 @@ fnc: process(all)
 ----------------------------------------------
 tdp_ram_inst: tdp_ram
    generic map(
-      G_DWIDTH => G_DEXTRA + G_DNUM * G_DWIDTH,
+      G_DWIDTH => C_DWIDTH,
       G_AWIDTH => 10)--ceil(log2(G_FDEPTH)))
    port map(
       clk_a  => i_clk,

@@ -27,7 +27,9 @@ component ea_reg
    generic(
       G_DNUM      : natural;
       G_DWIDTH    : natural;
-      G_DEXTRA    : natural);
+      G_DEXTRA    : natural;
+		G_USE_EXTR  : natural;
+		G_USE_POSS  : natural);
    port(
       i_clk       : in  std_logic;
       i_rst       : in  std_logic;
@@ -103,7 +105,9 @@ dut_reg : ea_reg
    generic map(
       G_DNUM      => 1,
       G_DWIDTH    => G_DWIDTH,
-      G_DEXTRA    => C_DEXTRA_MAX)
+      G_DEXTRA    => C_DEXTRA_MAX,
+		G_USE_EXTR  => 1,
+		G_USE_POSS  => 0)
    port map(
       i_clk       => s_axis_aclk,
       i_rst       => not s_axis_arst_n,

@@ -15,7 +15,7 @@ package p_handshake is
       handsh    : std_logic;
       dextra    : std_logic_vector(C_DEXTRA_MAX -1 downto 0);
       data      : std_logic_vector(C_DWIDTH_MAX -1 downto 0);--darray;
-      possition : std_logic_vector(C_POS_WIDTH     downto 0);
+      possition : std_logic_vector(C_POS_WIDTH  -1 downto 0);
    end record t_data;  
  
    constant t_data_rst : t_data := (
