@@ -19,8 +19,8 @@ library ieee;
 library ieee_proposed;
     use ieee_proposed.fixed_pkg.all;
 
-library common_lib;
-    use common_lib.p_common.all;
+--library common_lib;
+    use work.p_common.all;
 
 entity cf_indx_calc is
    generic(
@@ -31,13 +31,12 @@ entity cf_indx_calc is
       G_DWIDTH        : integer range 1 to 64 :=    8);
    port ( 
       --! input clk
-      i_clk       : in  std_logic;
+      i_clk        : in  std_logic;
       --! input reset
-      i_rst       : in  std_logic;
+      i_rst        : in  std_logic;
       --! input row/comlmun position valid
-      i_data      : in  t_data;
-      i_poss      : in  std_logic_vector(11-1 downto 0);
-      o_ack       : out t_ack;
+      i_data       : in  t_data;
+      o_ack        : out t_ack;
       -- next module ready to accept filter outputs
       i_ack        : in  t_ack;
       o_data       : out t_data;
@@ -46,22 +45,23 @@ entity cf_indx_calc is
 
 architecture Behavioral of cf_indx_calc is
 
-component reg is
+component ea_reg
    generic(
-      G_EXWIDTH: natural                :=  0;
-      G_DNUM   : natural range 1 to   8 :=  1;
-      G_DWIDTH : natural range 1 to 128 :=  8);
+      G_DNUM      : natural;
+      G_DWIDTH    : natural;
+      G_DEXTRA    : natural;
+		G_USE_EXTR  : natural;
+		G_USE_POSS  : natural);
    port(
       i_clk       : in  std_logic;
       i_rst       : in  std_logic;
 
       i_data      : in  t_data;
       o_ack       : out t_ack;
-      i_poss      : in  std_logic_vector(11-1 downto 0);
 
       o_data      : out t_data;
       i_ack       : in  t_ack);
-   end component reg;
+   end component ea_reg;
 
    constant c_phase_width : positive := clog2(G_PHASE_NUM);
    constant c_phase_num   : positive := 2**c_phase_width;
@@ -82,7 +82,7 @@ component reg is
 
 ------------------------------------------------------------------------
 ------------------------------------------------------------------------
-   constant C_EXWIDTH_in: natural                :=  3;
+   constant C_EXWIDTH_in: natural                :=  2;
    constant C_DNUM_in   : natural range 1 to   8 :=  2;
    constant C_DWIDTH_in : natural range 1 to 128 :=  8;
 
@@ -103,8 +103,8 @@ component reg is
       in_data       => (others => '0'),
       in_data_ack   => (full => '0', ack => '0'),
       active        => '0',
-      odata         => (data => (others => '0'), handsh => '0', dextra => (others => '0')),
-      oack          => (ack => '0', full => '0'),
+      odata         => t_data_rst,
+      oack          => t_ack_rst,
       cf_indx       => (others => (others => '0')),
       poss_as_expct => (others => '0'),
       start_pos     => (others => '0'),
@@ -115,7 +115,9 @@ component reg is
 
    alias a_eof    : std_logic is R.in_data(C_EXWIDTH_in + C_DNUM_in * C_DWIDTH_in -1);
    alias a_last   : std_logic is R.in_data(C_EXWIDTH_in + C_DNUM_in * C_DWIDTH_in -2);
-   alias a_dvalid : std_logic is R.in_data(C_EXWIDTH_in + C_DNUM_in * C_DWIDTH_in -3);
+
+-- izbaceno, koristi se handsh - tako napravi !!!	
+--   alias a_dvalid : std_logic is R.in_data(C_EXWIDTH_in + C_DNUM_in * C_DWIDTH_in -3);
    
    signal w_inreg_data      : t_data;
    signal w_inreg_akc       : t_ack;
@@ -168,8 +170,8 @@ fnc: process(all)
             if R.in_data_ack.full = '0' then
                S.in_data_ack.ack := i_data.handsh;
                S.in_data_ack.full:= '1';
-               S.in_data         := i_data.data;
-               S.poss            := i_poss;
+               S.in_data         := i_data.data(C_EXWIDTH_in + C_DNUM_in * C_DWIDTH_in -1 downto 0);
+               S.poss            := i_data.possition;
             end if;
          end if;
          -- set ack full signal if all cells return info the poss is corresponding
@@ -219,22 +221,24 @@ cf_calc_cell_gen: for gen_cell_num in 0 to c_phase_num generate
    -- coef calculate cell
    -----------------------------------------
    l_cell_num(gen_cell_num) <= std_logic_vector(to_unsigned(gen_cell_num, c_phase_width +1));
---   coef_pos_calc_cell_i: entity work.cf_calc_cell
---      generic map(
---         G_IN_SIZE        => G_IN_SIZE,
---         G_OUT_SIZE       => G_OUT_SIZE,
---         G_PHASE_NUM      => c_phase_num,
---         G_DWIDTH         => G_DWIDTH)
---      port map( 
---         i_start_pos       => R.start_pos,
---         i_cell_num        => l_cell_num(gen_cell_num),
---         --output pixel data 
---         o_expected_pos    => w_expected_pos(gen_cell_num),
---         o_start_pos       => w_next_start_pix(gen_cell_num),
---         o_cf_num          => w_cf_indx(gen_cell_num));
---
---      -- is equal to i_pos
---      l_ipos_as_expected(gen_cell_num) <= '1' when ((w_expected_pos(gen_cell_num) xor R.poss) and a_dvalid) /= "00000";
+   coef_pos_calc_cell_i: entity work.cf_calc_cell
+      generic map(
+         G_IN_SIZE        => G_IN_SIZE,
+         G_OUT_SIZE       => G_OUT_SIZE,
+         G_PHASE_NUM      => c_phase_num,
+         G_DWIDTH         => G_DWIDTH)
+      port map( 
+         i_start_pos       => R.start_pos,
+         i_cell_num        => l_cell_num(gen_cell_num),
+         --output pixel data 
+         o_expected_pos    => w_expected_pos(gen_cell_num),
+         o_start_pos       => w_next_start_pix(gen_cell_num),
+         o_cf_num          => w_cf_indx(gen_cell_num));
+
+      -- is equal to i_pos
+
+-- a_dvalid izbaceno, koristi se handsh - tako napravi !!!	
+      l_ipos_as_expected(gen_cell_num) <= '1' when ((w_expected_pos(gen_cell_num) xor R.poss) and a_dvalid) /= "00000" else '0';
    end generate;
 
 

@@ -19,8 +19,6 @@ entity ea_stream_to_rows is
       s_axis_in       : in  axi_s_d1;
       s_axis_out      : out axi_s_d2;
 
-      o_poss          : out natural range 0 to 4095;
-
       o_pix           : out t_data;
       i_ack           : in  t_ack);
    end ea_stream_to_rows;
@@ -129,16 +127,16 @@ component ea_reg
       dsgn_to_out     : t_data;
  
       out_to_fifo     : t_ack;
-      fifo_to_out     : t_data;
+      reg_fifo_to_out : t_data;
       out_to_reg1     : t_ack;
    end record t_out_reg;  
 
    constant t_out_reg_rst : t_out_reg := (
       dsgn_to_out  => t_data_rst,
 
-      fifo_to_out  => t_data_rst,
-      out_to_fifo  => t_ack_rst,
-      out_to_reg1  => t_ack_rst);
+      reg_fifo_to_out => t_data_rst,
+      out_to_fifo     => t_ack_rst,
+      out_to_reg1     => t_ack_rst);
 
    signal R_rd, R_rd_in : t_out_reg;--(data(G_WR_DWIDTH -1 downto 0));
 
@@ -236,6 +234,7 @@ str2row_reg_inst_0 : ea_reg
                S.dsgn_to_reg1.handsh                     := not R_dsgn.dsgn_to_reg1.handsh;
                S.dsgn_to_reg1.data(G_DWIDTH -1 downto 0) := S.reg0_to_dsgn.data(G_DWIDTH -1 downto 0);
                S.dsgn_to_reg1.dextra                     := S.reg0_to_dsgn.dextra;
+               S.dsgn_to_reg1.possition                  := std_logic_vector(to_unsigned(S.row_cnt, C_POS_WIDTH));
 
                S.dsgn_to_reg0.full                       := '0';
             end if;
@@ -256,7 +255,7 @@ str2row_reg_inst_1 : ea_reg
       G_DWIDTH    => G_DWIDTH,
       G_DEXTRA    => C_DEXTRA_MAX,
 		G_USE_EXTR  => 1,
-		G_USE_POSS  => 0)
+		G_USE_POSS  => 1)
    port map(
       i_clk      => s_axis_aclk,
       i_rst      => not(s_axis_arst_n),
@@ -287,9 +286,6 @@ str2row_fifo_inst : ea_fifo
       i_ack      =>  w_out_to_fifo);
 
 
-   o_poss <= R_dsgn.row_cnt;
-
-
    rd_out_process : process(s_axis_aclk)
    begin
       if rising_edge(s_axis_aclk) then
@@ -315,9 +311,10 @@ str2row_fifo_inst : ea_fifo
             S.out_to_fifo.full := '1';
             S.out_to_reg1.full := '1';
 
-            S.fifo_to_out.data(2*G_DWIDTH -1 downto 0) := w_fifo_to_out.data(G_DWIDTH -1 downto 0) & w_reg1_to_out.data(G_DWIDTH -1 downto 0);
-            S.fifo_to_out.dextra := w_fifo_to_out.dextra;
-				S.fifo_to_out.handsh := not R_rd.fifo_to_out.handsh;
+            S.reg_fifo_to_out.data(2*G_DWIDTH -1 downto 0) := w_fifo_to_out.data(G_DWIDTH -1 downto 0) & w_reg1_to_out.data(G_DWIDTH -1 downto 0);
+				S.reg_fifo_to_out.possition                    := w_reg1_to_out.possition;
+            S.reg_fifo_to_out.dextra := w_fifo_to_out.dextra;
+				S.reg_fifo_to_out.handsh := not R_rd.reg_fifo_to_out.handsh;
 		   end if;
 		end if;
 
@@ -329,8 +326,9 @@ str2row_fifo_inst : ea_fifo
             S.out_to_reg1.full := '0';
 			
 			   S.dsgn_to_out.handsh                        := not R_rd.dsgn_to_out.handsh;
-			   S.dsgn_to_out.data(2*G_DWIDTH -1 downto 0)  := S.fifo_to_out.data(2*G_DWIDTH -1 downto 0);
-			   S.dsgn_to_out.dextra                        := S.fifo_to_out.dextra;
+			   S.dsgn_to_out.data(2*G_DWIDTH -1 downto 0)  := S.reg_fifo_to_out.data(2*G_DWIDTH -1 downto 0);
+			   S.dsgn_to_out.dextra                        := S.reg_fifo_to_out.dextra;
+			   S.dsgn_to_out.possition                     := S.reg_fifo_to_out.possition;				
          end if;
       end if;
  
@@ -349,7 +347,7 @@ str2row_fifo_inst : ea_fifo
       G_DWIDTH    => G_DWIDTH,
       G_DEXTRA    => C_DEXTRA_MAX,
 		G_USE_EXTR  => 1,
-		G_USE_POSS  => 0)
+		G_USE_POSS  => 1)
    port map(
       i_clk      => s_axis_aclk,
       i_rst      => not(s_axis_arst_n),
@@ -363,6 +361,7 @@ str2row_fifo_inst : ea_fifo
    o_pix.data(o_pix.data'high downto 2*G_DWIDTH) <= (others => '0');
    o_pix.data(  2*G_DWIDTH -1 downto 0)          <= w_oreg_to_out.data(2*G_DWIDTH -1 downto 0);
    o_pix.dextra                                  <= w_oreg_to_out.dextra;
+   o_pix.possition                               <= w_oreg_to_out.possition;
    o_pix.handsh                                  <= w_oreg_to_out.handsh;
 
 end Behavioral;
