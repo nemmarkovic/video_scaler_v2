@@ -16,8 +16,8 @@ library ieee;
 
     use work.p_handshake.all;
 
---library common_lib;
-    use work.p_common.all;
+library common_lib;
+    use common_lib.p_common.all;
 
 entity ea_bilinear_flt is
    generic(

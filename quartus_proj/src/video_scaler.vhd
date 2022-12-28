@@ -8,9 +8,6 @@ library ieee;
     use work.p_axi.all;
     use work.p_handshake.all;
 
---library common_lib;
---    use common_lib.p_common.all;
-
 entity video_scaler is
    generic(
       G_DWIDTH        : integer := 8;
@@ -18,16 +15,17 @@ entity video_scaler is
       G_TYPE          : string                := "V"; --"V", "H"
       G_IN_SIZE       : integer               :=  446;
       G_OUT_SIZE      : integer               := 2048;
-      G_PHASE_NUM     : integer range 2 to 8 := 4);
+      G_PHASE_NUM     : integer range 2 to 8  :=    4);
     port ( 
-		s_axis_aclk	    : in  std_logic;
-		s_axis_arst_n	 : in  std_logic;
+      s_axis_aclk     : in  std_logic;
+      s_axis_arst_n	  : in  std_logic;
       s_axis_in       : in  axi_s_d1;
       s_axis_out      : out axi_s_d2;
 
+      i_ack           : in  t_ack;
 
-		s_axis_2_aclk   : in  std_logic;
-		s_axis_2_arst_n : in  std_logic;
+      s_axis_2_aclk   : in  std_logic;
+      s_axis_2_arst_n : in  std_logic;
       s_axis_2_out    : out axi_s_d1;
       s_axis_2_in     : in  axi_s_d2
     );
@@ -101,7 +99,7 @@ bilinear_flt_i: ea_bilinear_flt
       i_rst           => l_rst,
       o_ack           => w_ack,
       i_pix           => w_pix,
-      i_ack           => (ack => '0', full => '0'),
+      i_ack           => i_ack, --(ack => '0', full => '0'),
       o_bank_sel      => open,
       o_pix           => w_bflt_pix);
 

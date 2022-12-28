@@ -10,7 +10,7 @@ library IEEE;
 
 entity tb_stream_to_rows is
    generic(
-      G_DWIDTH   : integer := 8;
+      G_DWIDTH     : integer := 8;
       G_FIFO_DEPTH : integer := 16);
    end entity tb_stream_to_rows;
 
@@ -25,9 +25,6 @@ component ea_stream_to_rows is
 		s_axis_arst_n	: in  std_logic;
         s_axis_in       : in  axi_s_d1;
         s_axis_out      : out axi_s_d2;
-
-        o_poss          : out natural range 0 to 4095;
-
         o_pix           : out t_data;
         i_ack           : in  t_ack);
    end component ea_stream_to_rows;
@@ -77,7 +74,6 @@ end p_send_data;
   signal s_axis_arst_n : std_logic;
   signal s_axis_in     : axi_s_d1;--(tdata(G_WR_DWIDTH -1 downto 0));
   signal s_axis_out    : axi_s_d2;
-  signal o_poss        : natural; --std_logic_vector(11-1 downto 0);
   signal o_pix         : t_data;
   signal i_ack         : t_ack;
   signal dummy         : std_logic;
@@ -143,7 +139,6 @@ stream_to_rows_i: ea_stream_to_rows
       s_axis_arst_n => s_axis_arst_n,
       s_axis_in     => s_axis_in,
       s_axis_out    => s_axis_out,
-      o_poss        => o_poss,
       o_pix         => o_pix,
       i_ack         => i_ack );
 

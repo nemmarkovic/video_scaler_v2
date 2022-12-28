@@ -36,7 +36,7 @@ architecture rtl of tdp_ram is
    shared variable ram : memory_t;
 
 attribute RAM_STYLE : string;
-attribute RAM_STYLE of tdp_ram: entity is "BLOCK";
+--attribute RAM_STYLE of tdp_ram: entity is "BLOCK";
 
 begin
 
