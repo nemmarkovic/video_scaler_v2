@@ -65,6 +65,8 @@ component ea_reg
 
    constant c_phase_width : positive := clog2(G_PHASE_NUM);
    constant c_phase_num   : positive := 2**c_phase_width;
+   constant c_ones        : std_logic_vector(0 to c_phase_num) := (others => '1');
+   constant c_zeros       : std_logic_vector(0 to c_phase_num) := (others => '0');
 
    -- cf index calc cell signals
    signal l_mux_sel          : std_logic_vector(c_phase_num -1 downto 0);
@@ -82,12 +84,10 @@ component ea_reg
 
 ------------------------------------------------------------------------
 ------------------------------------------------------------------------
-   constant C_EXWIDTH_in: natural                :=  2;
    constant C_DNUM_in   : natural range 1 to   8 :=  2;
-   constant C_DWIDTH_in : natural range 1 to 128 :=  8;
 
    type t_reg is record
-      in_data       : std_logic_vector(C_EXWIDTH_in + C_DNUM_in * C_DWIDTH_in -1 downto 0);
+      in_data       : t_data;
       in_data_ack   : t_ack;
       odata         : t_data;
       oack          : t_ack;
@@ -113,8 +113,8 @@ component ea_reg
 
    signal R, R_in   : t_reg;
 
-   alias a_eof    : std_logic is R.in_data(C_EXWIDTH_in + C_DNUM_in * C_DWIDTH_in -1);
-   alias a_last   : std_logic is R.in_data(C_EXWIDTH_in + C_DNUM_in * C_DWIDTH_in -2);
+   alias a_eof    : std_logic is R.in_data.dextra(1);
+   alias a_last   : std_logic is R.in_data.dextra(0);
 
 -- izbaceno, koristi se handsh - tako napravi !!!	
 --   alias a_dvalid : std_logic is R.in_data(C_EXWIDTH_in + C_DNUM_in * C_DWIDTH_in -3);
@@ -145,12 +145,12 @@ reg_in : process(i_clk)
 fnc: process(all)
       type t_lreg is record
          mux_sel : std_logic_vector(c_phase_num -1 downto 0);
-         ipos_coresponds_for_all_cells : std_logic;
+         ready_for_next_pix : std_logic;
       end record t_lreg;
 
       constant t_lreg_rst : t_lreg := (
          mux_sel       => (others => '0'),
-         ipos_coresponds_for_all_cells => '0');
+         ready_for_next_pix => '0');
 
       variable S : t_reg;
       variable V : t_lreg;
@@ -161,21 +161,23 @@ fnc: process(all)
 
       if R.active = '1' then
 
-         V.ipos_coresponds_for_all_cells := '0';
-			if (l_ipos_as_expected = "1111") then
-            V.ipos_coresponds_for_all_cells := '1';			
+         V.ready_for_next_pix := '0';
+			if (l_ipos_as_expected = c_ones) then
+            V.ready_for_next_pix := '1';			
 			end if;
 
          if i_data.handsh /= R.in_data_ack.ack then
             if R.in_data_ack.full = '0' then
                S.in_data_ack.ack := i_data.handsh;
                S.in_data_ack.full:= '1';
-               S.in_data         := i_data.data(C_EXWIDTH_in + C_DNUM_in * C_DWIDTH_in -1 downto 0);
-               S.poss            := i_data.possition;
+
+               S.in_data.data(C_DNUM_in * G_DWIDTH -1 downto 0) := i_data.data(C_DNUM_in * G_DWIDTH -1 downto 0);
+               S.in_data.dextra                                 := i_data.dextra;
+               S.in_data.possition                              := i_data.possition;
             end if;
          end if;
          -- set ack full signal if all cells return info the poss is corresponding
-         S.in_data_ack.full := V.ipos_coresponds_for_all_cells;  -- or R.in_data_ack.full;--(?  R.in_data_ack.full)
+         S.in_data_ack.full := V.ready_for_next_pix;  -- or R.in_data_ack.full;--(?  R.in_data_ack.full)
 
          V.mux_sel := (others => '0');
          cf_xor_gen: for gen_cell_num in 1 to c_phase_num loop
@@ -185,7 +187,7 @@ fnc: process(all)
          end loop;
 
 
-         if V.ipos_coresponds_for_all_cells = '1' then
+         if V.ready_for_next_pix = '1' then
             S.start_pos       := w_next_start_pix(c_phase_num);
 --            l_start_pos_valid <= '1';
          else
@@ -235,13 +237,48 @@ cf_calc_cell_gen: for gen_cell_num in 0 to c_phase_num generate
          o_start_pos       => w_next_start_pix(gen_cell_num),
          o_cf_num          => w_cf_indx(gen_cell_num));
 
-      -- is equal to i_pos
-
--- a_dvalid izbaceno, koristi se handsh - tako napravi !!!	
---      l_ipos_as_expected(gen_cell_num) <= '1' when ((w_expected_pos(gen_cell_num) xor R.poss) and a_dvalid) /= "00000" else '0';
+      -- is equal to i_pos	
+      l_ipos_as_expected(gen_cell_num) <= '1' when (w_expected_pos(gen_cell_num) xor R.poss) /= c_zeros else '0';
    end generate;
 
 
+	
+	
+-- Register process
+reg_out : process(i_clk)
+   begin
+      if rising_edge(i_clk) then
+         if (i_rst = '1') then
+             R_out <= t_reg_out_rst;
+         else
+             R_out <= R_out_cmb;
+             R_out.active <= '1';
+         end if;
+      end if;
+   end process;
+
+-- Function comb process
+fnc: process(all)
+      variable S : t_reg;
+      variable V : t_lreg;
+   begin
+      S := R;
+
+      V := t_lreg_rst;
+
+      if R.active = '1' then
+         if i_ack.full = '0' then
+            if i_ack.ack = R_out.dout.handsh then
+               S.dout.handsh    := not R_out.dout.handsh;
+					S.dout.data      :=
+					S.dout.dextra    :=
+					S.dout.possition :=
+            end if;
+         end if;
+      end if;
+
+      R_out_cmb <= S;
+   end process;
 
 -----------------------------------------
 -- outputs assignment

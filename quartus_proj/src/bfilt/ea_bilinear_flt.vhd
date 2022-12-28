@@ -16,9 +16,6 @@ library ieee;
 
     use work.p_handshake.all;
 
---library ieee_proposed;
---    use ieee_proposed.fixed_pkg.all;
-
 --library common_lib;
     use work.p_common.all;
 
