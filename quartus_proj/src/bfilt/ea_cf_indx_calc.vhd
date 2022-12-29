@@ -69,7 +69,6 @@ component ea_reg
    constant c_zeros       : std_logic_vector(0 to c_phase_num) := (others => '0');
 
    -- cf index calc cell signals
- --  signal l_mux_sel          : std_logic_vector(c_phase_num -1 downto 0);
    signal l_ipos_as_expected : std_logic_vector(0 to c_phase_num);
  
    type t_cf_width_array is array (0 to c_phase_num) of std_logic_vector(c_phase_width -1 downto 0);
@@ -78,9 +77,6 @@ component ea_reg
    type t_pix_pos is array (0 to c_phase_num) of std_logic_vector(11 -1 downto 0);
    signal w_next_start_pix :  t_pix_pos;
    signal w_expected_pos   :  t_pix_pos;
-   
-   signal l_indx_valid : std_logic_vector(0 to c_phase_num -1);
-
 
 ------------------------------------------------------------------------
 ------------------------------------------------------------------------
@@ -209,7 +205,8 @@ cf_calc_cell_gen: for gen_cell_num in 0 to c_phase_num generate
          o_cf_num          => w_cf_indx(gen_cell_num));
 
       -- is equal to i_pos	
-      l_ipos_as_expected(gen_cell_num) <= '1' when ((w_expected_pos(gen_cell_num) xor R_out.start_pos1) /= c_zeros) else '0';
+      -- l_ipos_as_expected(gen_cell_num) <= nor(w_expected_pos(gen_cell_num) xor R_out.start_pos) and (R.active);
+      l_ipos_as_expected(gen_cell_num) <= '1' when ((w_expected_pos(gen_cell_num) = R_out.start_pos) and (R.active = '1')) else '0';
    end generate;
 -----------------------------------------------
 -- uporedi l_start_pos  i vidi v/h opcije
@@ -221,7 +218,7 @@ reg_out : process(i_clk)
          if (i_rst = '1') then
              R_out <= t_reg_out_rst;
          else
-             R_out <= R_out_cmb;
+             R_out        <= R_out_cmb;
              R_out.active <= true;
          end if;
       end if;
@@ -230,11 +227,11 @@ reg_out : process(i_clk)
 -- Function comb process
 out_fnc: process(all)
       type t_lreg is record
-         mux_sel : std_logic_vector(c_phase_num -1 downto 0);
+         next_spos_sel : std_logic_vector(c_phase_num -1 downto 0);
       end record t_lreg;
 
       constant t_lreg_rst : t_lreg := (
-         mux_sel       => (others => '0'));
+         next_spos_sel       => (others => '0'));
 
       variable V : t_lreg;
       variable S : t_reg_out;
@@ -254,18 +251,17 @@ out_fnc: process(all)
 			S.dout.possition := (others => '0');  -- preuzmi sledecu poziciju sa mogula u zavisnosti od toga koja se bira
 
 
-            V.mux_sel := (others => '0');
+            V.next_spos_sel := (others => '0');
             cf_xor_gen: for gen_cell_num in 1 to c_phase_num loop
                if (l_ipos_as_expected(gen_cell_num) xor l_ipos_as_expected(gen_cell_num -1)) = '1' then
-                  V.mux_sel(gen_cell_num -1) := '1';
+                  V.next_spos_sel(gen_cell_num -1) := '1';
                end if;
             end loop;
 
--- zakasni dodjelu za takt
             if S.ready_for_next_pix then
                cf_spos_gen: for gen_cell_num in 0 to c_phase_num -1 loop
-                  if (V.mux_sel(gen_cell_num )) = '1' then
-                     S.start_pos       := w_next_start_pix(gen_cell_num +1);
+                  if (V.next_spos_sel(gen_cell_num )) = '1' then
+                     S.start_pos       := w_next_start_pix(gen_cell_num);
                   end if;
                end loop;
             else
