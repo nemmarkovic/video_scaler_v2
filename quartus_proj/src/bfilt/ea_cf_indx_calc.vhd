@@ -69,7 +69,7 @@ component ea_reg
    constant c_zeros       : std_logic_vector(0 to c_phase_num) := (others => '0');
 
    -- cf index calc cell signals
-   signal l_mux_sel          : std_logic_vector(c_phase_num -1 downto 0);
+ --  signal l_mux_sel          : std_logic_vector(c_phase_num -1 downto 0);
    signal l_ipos_as_expected : std_logic_vector(0 to c_phase_num);
  
    type t_cf_width_array is array (0 to c_phase_num) of std_logic_vector(c_phase_width -1 downto 0);
@@ -93,9 +93,7 @@ component ea_reg
       oack          : t_ack;
       cf_indx       : t_cf_width_array;
       active        : std_logic;
-      poss_as_expct : std_logic_vector(0 to c_phase_num);
-      indx_valid    : std_logic_vector(0 to c_phase_num -1);
-      poss          : std_logic_vector(11-1 downto 0);
+--      indx_valid    : std_logic_vector(0 to c_phase_num -1);
    end record t_reg;  
 
    constant t_reg_rst : t_reg := (
@@ -104,10 +102,7 @@ component ea_reg
       active        => '0',
       odata         => t_data_rst,
       oack          => t_ack_rst,
-      cf_indx       => (others => (others => '0')),
-      poss_as_expct => (others => '0'),
-      indx_valid    => (others => '0'),
-      poss          => (others => '0'));
+      cf_indx       => (others => (others => '0')));
 
    signal R, R_in   : t_reg;
 
@@ -118,6 +113,7 @@ component ea_reg
       dout       : t_data;
       dout_ack   : t_ack;
       start_pos  : std_logic_vector(11-1 downto 0);
+      start_pos1  : std_logic_vector(11-1 downto 0);
 		active     : boolean;
 		ready_for_next_pix : boolean;
    end record t_reg_out;  
@@ -126,6 +122,7 @@ component ea_reg
       dout       => t_data_rst,
       dout_ack   => t_ack_rst,
       start_pos  => (others => '0'),
+      start_pos1  => (others => '0'),
 		active     => false,
 		ready_for_next_pix => false);
 
@@ -182,11 +179,10 @@ fnc: process(all)
          end if;
  
          S.cf_indx := w_cf_indx;
- 
-         R_in <= S;
       end if;
+      R_in <= S;
 end process;
-
+o_ack <= R.in_data_ack;
 -----------------------------------------
 -- combinational logic between two reg stages
 -----------------------------------------
@@ -213,9 +209,10 @@ cf_calc_cell_gen: for gen_cell_num in 0 to c_phase_num generate
          o_cf_num          => w_cf_indx(gen_cell_num));
 
       -- is equal to i_pos	
-      l_ipos_as_expected(gen_cell_num) <= '1' when (w_expected_pos(gen_cell_num) xor R.poss) /= c_zeros else '0';
+      l_ipos_as_expected(gen_cell_num) <= '1' when ((w_expected_pos(gen_cell_num) xor R_out.start_pos1) /= c_zeros) else '0';
    end generate;
-
+-----------------------------------------------
+-- uporedi l_start_pos  i vidi v/h opcije
 	
 -- Register process
 reg_out : process(i_clk)
@@ -252,9 +249,9 @@ out_fnc: process(all)
          if (i_ack.ack = R_out.dout.handsh) and (i_ack.full = '0') then
 
             S.dout.handsh    := not R_out.dout.handsh;
-				S.dout.data      := (others => '0');  -- preuzmi podatak zaregistrovan na ulazu
-				S.dout.dextra    := (others => '0');  -- mjau mjau logicno
-				S.dout.possition := (others => '0');  -- preuzmi sledecu poziciju sa mogula u zavisnosti od toga koja se bira
+			S.dout.data      := (others => '0');  -- preuzmi podatak zaregistrovan na ulazu
+			S.dout.dextra    := (others => '0');  -- mjau mjau logicno
+			S.dout.possition := (others => '0');  -- preuzmi sledecu poziciju sa mogula u zavisnosti od toga koja se bira
 
 
             V.mux_sel := (others => '0');
@@ -264,17 +261,17 @@ out_fnc: process(all)
                end if;
             end loop;
 
-
+-- zakasni dodjelu za takt
             if S.ready_for_next_pix then
                cf_spos_gen: for gen_cell_num in 0 to c_phase_num -1 loop
-                  if (l_mux_sel(gen_cell_num )) = '1' then
+                  if (V.mux_sel(gen_cell_num )) = '1' then
                      S.start_pos       := w_next_start_pix(gen_cell_num +1);
                   end if;
                end loop;
             else
                S.start_pos       := w_next_start_pix(c_phase_num);
             end if;
-
+           S.start_pos1 := R_out.start_pos;
          end if;
       end if;
 
@@ -287,7 +284,7 @@ out_fnc: process(all)
 
 gf: for cell_num_gen in 0 to c_phase_num -1 generate
    o_cf(cell_num_gen).cf_indx       <= w_cf_indx(cell_num_gen);
-   o_cf(cell_num_gen).cf_indx_valid <= R.indx_valid(cell_num_gen);
+   o_cf(cell_num_gen).cf_indx_valid <= '1';--R.indx_valid(cell_num_gen);
 end generate;
 
 

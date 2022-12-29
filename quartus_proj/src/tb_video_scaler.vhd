@@ -13,6 +13,13 @@ library IEEE;
     use work.p_handshake.all;
 
 entity video_scaler_tb is
+     generic(
+        G_DWIDTH        : integer := 8;
+        G_FIFO_DEPTH    : integer := 2048;
+        G_TYPE          : string                := "V";
+        G_IN_SIZE       : integer               :=  5;
+        G_OUT_SIZE      : integer               := 11;
+        G_PHASE_NUM     : integer range 2 to 8  :=    4);
 end;
 
 architecture bench of video_scaler_tb is
@@ -88,8 +95,8 @@ rst_proc: process
          G_DWIDTH     =>    8,
          G_FIFO_DEPTH => 2048,
          G_TYPE       => "V", --"V", "H"
-         G_IN_SIZE    =>  446,
-         G_OUT_SIZE   => 2048,
+         G_IN_SIZE    =>  G_IN_SIZE,
+         G_OUT_SIZE   => G_OUT_SIZE,
          G_PHASE_NUM  =>    4)
       port map ( 
          s_axis_aclk     => s_axis_aclk,
@@ -132,7 +139,7 @@ stimulus_cmb: process(R, s_axis_aclk, s_axis_arst_n, s_axis_out)
          S.s_axis_in.tlast  := '0';
          S.s_axis_in.tuser  := '0';
 
-         if unsigned(S.s_axis_in.tdata) mod 13 = 0 then
+         if unsigned(S.s_axis_in.tdata) mod G_IN_SIZE = 0 then
             S.s_axis_in.tlast  := '1';
          end if;
       end if;

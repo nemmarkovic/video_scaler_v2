@@ -35,7 +35,7 @@ architecture Behavioral of video_scaler is
 
 component ea_bilinear_flt is
    generic(
-      G_TYPE          : string                := "V"; --"V", "H"
+      G_TYPE          : string                := "H"; --"V", "H"
       G_IN_SIZE       : integer               :=  446;
       G_OUT_SIZE      : integer               := 2048;
       G_PHASE_NUM     : integer range 2 to  8 := 4;

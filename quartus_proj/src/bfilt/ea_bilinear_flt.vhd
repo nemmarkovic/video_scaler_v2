@@ -33,7 +33,6 @@ entity ea_bilinear_flt is
       i_rst     : in  std_logic;
       -- ready to filter new data pair
       o_ack     : out  t_ack;
-      i_poss    : in   natural range 0 to 4095;
       -- input pixel data
       -- pix0
       -- pix1
@@ -119,6 +118,9 @@ cf_indx_calc_i: entity work.cf_indx_calc
 --      i_ack       => i_ack,
 --      o_pix       => w_bflt_to_next_data,
 --      o_bank_sel  => w_bflt_to_next_bank_sel);
+
+
+w_rpc_ack_to_cic <= i_ack;
       
 ------------------------------------------------------------------------------------
 -- output assignment
